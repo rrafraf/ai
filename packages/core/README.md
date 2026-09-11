@@ -8,6 +8,7 @@ The Vercel AI SDK is **a library for building edge-ready AI-powered streaming te
 - First-class support for [LangChain](js.langchain.com/docs) and [OpenAI](https://openai.com), [Anthropic](https://www.anthropic.com), and [HuggingFace](https://huggingface.co)
 - [Edge Runtime](https://edge-runtime.vercel.app/) compatibility
 - Callbacks for saving completed streaming responses to a database (in the same request)
+- Image-analysis helpers for preprocessing, ellipse fitting and geometric measurements
 
 ## Installation
 
@@ -16,6 +17,32 @@ pnpm install ai
 ```
 
 View the full documentation and examples on [sdk.vercel.ai/docs](https://sdk.vercel.ai/docs)
+
+## Vision utilities
+
+The `ai/shared/vision` module provides tools for droplet analysis and other computer-vision
+tasks. A full preprocessing pipeline is exposed via `preprocessImage`, which internally
+performs grayscale conversion, Gaussian smoothing, adaptive thresholding and Canny edge
+detection using the [`image-js`](https://github.com/image-js/image-js) library. The resulting
+edge points can be passed to `fitEllipse` to recover ellipse parameters (centre, axes and
+rotation) using a regularised least-squares estimator with optional RANSAC rejection. Two
+ellipses can be compared with `findEllipseIntersections` to retrieve the intersection points
+and inferred base-plane diameter.
+
+```ts
+import { preprocessImage, fitEllipse, findEllipseIntersections } from 'ai/shared/vision'
+
+const { edgePoints } = await preprocessImage('./droplet.pgm')
+const top = edgePoints.filter((point) => point.y < 80)
+const bottom = edgePoints.filter((point) => point.y >= 80)
+
+const topEllipse = fitEllipse(top, { ransacIterations: 200 })
+const bottomEllipse = fitEllipse(bottom, { ransacIterations: 200 })
+const { points, basePlaneDiameter } = findEllipseIntersections(topEllipse, bottomEllipse)
+```
+
+Refer to `packages/core/tests/vision/ellipse-extraction.test.ts` for an end-to-end example
+that operates on a representative droplet image.
 
 ## Example: An AI Chatbot with Next.js and OpenAI
 
